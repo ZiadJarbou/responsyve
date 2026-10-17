@@ -4,7 +4,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
-ENV NITRO_PRESET=node-server
+# Keep native compiler pools small on Hyperlift Micro's fractional CPU.
+ENV NITRO_PRESET=node-server \
+    RAYON_NUM_THREADS=1 \
+    ROLLDOWN_WORKER_THREADS=1 \
+    ROLLDOWN_MAX_BLOCKING_THREADS=2
 RUN npm run build
 
 FROM node:24-bookworm-slim AS runtime
