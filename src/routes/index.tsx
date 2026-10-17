@@ -389,7 +389,8 @@ function Footer() {
         <a href={`mailto:${email}`} className="inline-flex min-h-11 items-center text-sm font-medium hover:text-azure">
           {email}
         </a>
-        <ul className="flex gap-6 text-sm">
+        <ul className="flex flex-wrap gap-6 text-sm">
+          <li><a href="/tv-remote/support/" className="inline-flex min-h-11 items-center font-medium text-on-night-muted hover:text-on-night">TV Remote support</a></li>
           {products.map((product) => (
             <li key={product.host}>
               <a
