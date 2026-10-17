@@ -25,3 +25,9 @@ attachments
 dist
 *.log
 AGENTS.md
+*.pem
+*.p12
+*.pfx
+release-secrets/
+billing/.venv/
+**/__pycache__/

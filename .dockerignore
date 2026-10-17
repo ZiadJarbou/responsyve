@@ -11,3 +11,11 @@ dist
 screenshots
 artifacts
 attachments
+**/.venv
+**/__pycache__
+release-secrets
+*.pem
+*.jks
+*.keystore
+*.p12
+*.pfx
