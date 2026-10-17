@@ -1,0 +1,185 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --paper: #f3f1ec;
+  --ink: #16181c;
+  --muted: #5c584f;
+  --line: #e2ddd4;
+  --panel: #fffcf7;
+  --azure: #0a5ea8;
+  --azure-ink: #08467c;
+  --azure-soft: #e4eef6;
+  --on-azure: #f5f9fc;
+  --header: #121418;
+  --header-2: #1c2128;
+  --on-header: #f6f3ee;
+  --on-header-muted: #c9c3b8;
+  --shadow-plate: 0 24px 50px rgb(18 20 24 / 0.16);
+  color-scheme: light;
+}
+
+.dark {
+  --paper: #101216;
+  --ink: #f4f1ea;
+  --muted: #b7b1a6;
+  --line: #2a303a;
+  --panel: #191e27;
+  --azure: #6aafeb;
+  --azure-ink: #c5dff8;
+  --azure-soft: #15283a;
+  --on-azure: #071018;
+  --header: #07080b;
+  --header-2: #1c2330;
+  --on-header: #f4f1ea;
+  --on-header-muted: #c5c0b6;
+  --shadow-plate: 0 24px 50px rgb(0 0 0 / 0.45);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
+
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-panel: var(--panel);
+  --color-azure: var(--azure);
+  --color-azure-ink: var(--azure-ink);
+  --color-azure-soft: var(--azure-soft);
+  --color-on-azure: var(--on-azure);
+  --color-night: var(--header);
+  --color-night-2: var(--header-2);
+  --color-on-night: var(--on-header);
+  --color-on-night-muted: var(--on-header-muted);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --leading-display: 0.96;
+  --tracking-display: -0.03em;
+
+  --shadow-plate: var(--shadow-plate);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 7.5rem;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    text-wrap: pretty;
+    transition: background-color 150ms linear, color 150ms linear;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--azure);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    body {
+      transition: none;
+    }
+
+    .rise {
+      animation: none;
+    }
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rise {
+  animation: rise 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.rise-2 {
+  animation-delay: 80ms;
+}
+
+.rise-3 {
+  animation-delay: 160ms;
+}
+
+@keyframes banner-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.banner-in {
+  animation: banner-in 480ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes banner-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.banner-progress {
+  transform-origin: left center;
+  animation: banner-progress 5.6s linear forwards;
+}
+
+.is-paused .banner-progress {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .banner-in,
+  .banner-progress {
+    animation: none;
+  }
+
+  .banner-progress {
+    transform: scaleX(1);
+  }
+}
