@@ -57,3 +57,10 @@ class ReviewerAccess(unittest.TestCase):
         client=self.client()
         for _ in range(30):self.assertEqual(client.post('/v1/subscription/verify',json=self.body(reviewCredential='B'*43)).status_code,200)
         self.assertEqual(client.post('/v1/subscription/verify',json=self.body()).status_code,429)
+
+    def test_chunked_signing_key_for_host_variable_limit(self):
+        encoded=base64.b64encode(self.pem).decode()
+        chunks={'ENTITLEMENT_PRIVATE_KEY_B64':'', **{'ENTITLEMENT_PRIVATE_KEY_B64_'+str(i//1024+1):encoded[i:i+1024] for i in range(0,len(encoded),1024)}}
+        self.assertTrue(self.client(**chunks).post('/v1/subscription/verify',json=self.body()).json['active'])
+        chunks['ENTITLEMENT_PRIVATE_KEY_B64_1']='broken'
+        self.assertFalse(self.client(**chunks).post('/v1/subscription/verify',json=self.body()).json['active'])

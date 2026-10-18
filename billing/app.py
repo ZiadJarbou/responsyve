@@ -101,7 +101,7 @@ def create_app(publisher=None, signer=None, package=None, clock=time.time):
         reviewer_enabled = False
     if not signer and (enabled or reviewer_enabled):
         try:
-            encoded = os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64')
+            encoded = os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64') or ''.join(os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64_' + str(i), '') for i in range(1, 5))
             pem = base64.b64decode(encoded, validate=True) if encoded else Path(os.environ['ENTITLEMENT_PRIVATE_KEY_FILE']).read_bytes()
             signer = LeaseSigner(pem)
         except Exception:

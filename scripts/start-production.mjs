@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 // One external port remains 8080. The verifier is reachable only over loopback.
 const websiteEnv = {...process.env};
 for (const key of ['ENTITLEMENT_PRIVATE_KEY_B64', 'ENTITLEMENT_PRIVATE_KEY_FILE', 'GOOGLE_SERVICE_ACCOUNT_B64', 'GOOGLE_APPLICATION_CREDENTIALS', 'REVIEWER_CREDENTIAL_SHA256']) delete websiteEnv[key];
+for (const key of Object.keys(websiteEnv)) if (key.startsWith('ENTITLEMENT_PRIVATE_KEY_B64_')) delete websiteEnv[key];
 const processes = [
   spawn('/opt/billing-venv/bin/gunicorn', ['--chdir', '/app/billing', '--bind', '127.0.0.1:9001', '--workers', '1', '--threads', '2', '--timeout', '45', '--access-logfile', '/dev/null', 'app:create_app()'], {stdio: 'inherit', env: process.env}),
   spawn(process.execPath, ['.output/server/index.mjs'], {stdio: 'inherit', env: websiteEnv}),
