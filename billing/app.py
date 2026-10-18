@@ -5,6 +5,9 @@ import os
 import time
 import uuid
 import threading
+import hashlib
+import hmac
+import re
 from collections import deque
 from datetime import datetime
 from pathlib import Path
@@ -92,7 +95,11 @@ def create_app(publisher=None, signer=None, package=None, clock=time.time):
     package = package or os.environ.get('PLAY_PACKAGE_NAME', 'co.responsyve.tvremote')
     enabled = injected or os.environ.get('BILLING_ENABLED') == 'true'
     configuration_ok = False
-    if not signer and enabled:
+    reviewer_enabled = os.environ.get('REVIEWER_ACCESS_ENABLED') == 'true'
+    reviewer_hash = os.environ.get('REVIEWER_CREDENTIAL_SHA256', '')
+    if not re.fullmatch('[0-9a-f]{64}', reviewer_hash):
+        reviewer_enabled = False
+    if not signer and (enabled or reviewer_enabled):
         try:
             encoded = os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64')
             pem = base64.b64decode(encoded, validate=True) if encoded else Path(os.environ['ENTITLEMENT_PRIVATE_KEY_FILE']).read_bytes()
@@ -104,6 +111,7 @@ def create_app(publisher=None, signer=None, package=None, clock=time.time):
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 8192
     recent = deque()
+    review_recent = deque()
     guard = threading.Lock()
     # A global ceiling bounds upstream API cost on a small single-worker deployment.
     concurrent = threading.BoundedSemaphore(2)
@@ -134,6 +142,35 @@ def create_app(publisher=None, signer=None, package=None, clock=time.time):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify(error='Invalid request'), 400
+        if 'reviewCredential' in data:
+            # Separate grant type; never synthesize a purchase or consult Play.
+            with guard:
+                tick = time.monotonic()
+                while review_recent and review_recent[0] <= tick - 60:
+                    review_recent.popleft()
+                if len(review_recent) >= 30:
+                    return jsonify(error='Please retry shortly'), 429
+                review_recent.append(tick)
+            try:
+                uuid.UUID(data.get('installation'))
+                uuid.UUID(data.get('nonce'))
+            except (ValueError, TypeError, AttributeError):
+                return jsonify(error='Invalid request'), 400
+            credential = data.get('reviewCredential')
+            if not isinstance(credential, str) or not re.fullmatch('[A-Za-z0-9_-]{43}', credential):
+                return jsonify(active=False)
+            if not reviewer_enabled or signer is None:
+                return jsonify(active=False)
+            digest = hashlib.sha256(credential.encode('ascii')).hexdigest()
+            if not hmac.compare_digest(digest, reviewer_hash):
+                return jsonify(active=False)
+            now = int(clock())
+            claims = {'aud': package, 'product': 'tv_remote_reviewer', 'sub': data['installation'],
+                      'nonce': data['nonce'], 'iat': now, 'exp': now + 600}
+            try:
+                return jsonify(active=True, lease=signer.sign(claims))
+            except Exception:
+                return jsonify(error='Reviewer verification temporarily unavailable'), 503
         token, installation, nonce = (data.get(k) for k in ('purchaseToken', 'installation', 'nonce'))
         if not isinstance(token, str) or not 1 <= len(token) <= 4096 or any(c.isspace() or ord(c) < 32 for c in token):
             return jsonify(error='Invalid request'), 400
