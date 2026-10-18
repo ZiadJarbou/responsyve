@@ -90,6 +90,20 @@ class PlayPublisher:
                 raise RuntimeError('Play acknowledgement unavailable')
 
 
+def signing_key_base64():
+    full = os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64')
+    if full:
+        return full
+    parts = []
+    for i in range(1, 5):
+        canonical = os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64_' + str(i), '')
+        saved_name = os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64' + str(i), '')
+        if canonical and saved_name and canonical != saved_name:
+            raise ValueError('Conflicting signing key configuration')
+        parts.append(canonical or saved_name)
+    return ''.join(parts)
+
+
 def create_app(publisher=None, signer=None, package=None, clock=time.time):
     injected = publisher is not None and signer is not None
     package = package or os.environ.get('PLAY_PACKAGE_NAME', 'co.responsyve.tvremote')
@@ -101,7 +115,7 @@ def create_app(publisher=None, signer=None, package=None, clock=time.time):
         reviewer_enabled = False
     if not signer and (enabled or reviewer_enabled):
         try:
-            encoded = os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64') or ''.join(os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64_' + str(i), '') for i in range(1, 5))
+            encoded = signing_key_base64()
             pem = base64.b64decode(encoded, validate=True) if encoded else Path(os.environ['ENTITLEMENT_PRIVATE_KEY_FILE']).read_bytes()
             signer = LeaseSigner(pem)
         except Exception:
