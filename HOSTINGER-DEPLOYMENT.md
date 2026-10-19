@@ -56,15 +56,19 @@ The intended Hostinger DNS records are:
 | MX | @ | smtp.google.com, priority 1 | 300 |
 | TXT | @ | Existing Google site verification value | 1800 |
 
-Preserve Google Workspace mail and verification records when changing DNS.
-DNSSEC remains disabled as requested. Domain-owner email verification in
-Hostinger is required before nameserver changes.
+The domain transfer and owner-email verification completed on 19 October 2026.
+Nameservers are `apollo.dns-parking.com` and `athena.dns-parking.com`; the .co
+registry delegates to them. The website, Google MX and Google verification
+records were checked directly on these nameservers. Preserve these Google
+records when changing DNS. DNSSEC remains disabled as requested. Resolver
+caches can temporarily retain the former Spaceship addresses during cutover.
 
 The certificate covers `responsyve.co` and `www.responsyve.co` and is installed
 at `/etc/letsencrypt/live/responsyve.co/`. Initial issuance used DNS validation
-before cutover. After public DNS points here, configure and test automatic
-HTTP validation through `/var/www/responsyve-acme` with Certbot. A manual DNS
-certificate alone does not renew automatically.
+before cutover. Certbot's automatic HTTP renewal test subsequently passed and
+saved the webroot `/var/www/responsyve-acme`, HTTP challenge preference, and
+Nginx reload hook. `certbot.timer` is enabled. The certificate no longer relies
+on manual DNS challenges for renewal.
 
 ## Checks
 
