@@ -15,6 +15,11 @@ npm run dev
 
 The dev server listens on port 8080.
 
+## Production hosting
+
+See [HOSTINGER-DEPLOYMENT.md](HOSTINGER-DEPLOYMENT.md) for the Hostinger VPS
+website, verification service, DNS, deployment and rollback configuration.
+
 ## Deploy on Hyperlift
 
 Connect the `main` branch and set the Dockerfile path to `docker/Dockerfile`

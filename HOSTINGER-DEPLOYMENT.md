@@ -1,0 +1,79 @@
+# Hostinger deployment
+
+Responsyve's Node website and Python TV Remote verification service run on the
+existing Hostinger VPS `187.127.172.28` (Mumbai, India). This preserves the two
+runtimes used by the original container. KarCast has a separate Nginx virtual
+host on the same VPS.
+
+## Services and files
+
+- Website: `responsyve-website.service`, listening only on `127.0.0.1:8080`.
+- Verification: `responsyve-billing.service`, listening only on
+  `127.0.0.1:9001`, one Gunicorn worker and two threads.
+- Public HTTPS: Nginx virtual host `/etc/nginx/sites-available/responsyve`.
+- Runtime source: `/opt/responsyve/current`, a symlink into
+  `/opt/responsyve/releases/`.
+- Node 24 LTS: `/opt/responsyve-node/`; Python environment:
+  `/opt/responsyve/venv/`.
+- Existing billing/reviewer settings: `/etc/responsyve/billing.env`, owned by
+  root with mode `0600`. Systemd supplies these only to the billing service;
+  the website service does not receive the signing key or reviewer hash.
+
+The migrated configuration keeps paid billing disabled and preserves reviewer
+access. No private keys, reviewer credentials or environment files belong in
+this repository. Real Google Play purchase verification still requires its
+separate activation and license-test checks.
+
+## GitHub deployment
+
+With the owner's approval, `responsyve-deploy.timer` checks this repository's
+public `main` branch every five minutes. Its root-owned deployment script is
+`/usr/local/sbin/responsyve-deploy-latest`. Builds execute as the unprivileged
+`responsyve` user with small native compiler pools. A successful new release
+restarts the two services. Failed homepage/health checks restore the previous
+release symlink. Prior release directories remain available for rollback;
+monitor disk usage and remove obsolete releases deliberately.
+
+Inspect deployment results with:
+
+```sh
+systemctl status responsyve-website responsyve-billing
+journalctl -u responsyve-deploy.service --since today
+systemctl list-timers responsyve-deploy.timer
+```
+
+The shared Python environment is reused between releases. For a dependency
+upgrade, review Python package compatibility before relying on rollback.
+
+## DNS and HTTPS
+
+The intended Hostinger DNS records are:
+
+| Type | Name | Value | TTL |
+| --- | --- | --- | --- |
+| A | @ | 187.127.172.28 | 300 |
+| CNAME | www | responsyve.co | 300 |
+| MX | @ | smtp.google.com, priority 1 | 300 |
+| TXT | @ | Existing Google site verification value | 1800 |
+
+Preserve Google Workspace mail and verification records when changing DNS.
+DNSSEC remains disabled as requested. Domain-owner email verification in
+Hostinger is required before nameserver changes.
+
+The certificate covers `responsyve.co` and `www.responsyve.co` and is installed
+at `/etc/letsencrypt/live/responsyve.co/`. Initial issuance used DNS validation
+before cutover. After public DNS points here, configure and test automatic
+HTTP validation through `/var/www/responsyve-acme` with Certbot. A manual DNS
+certificate alone does not renew automatically.
+
+## Checks
+
+Verify the homepage, `/tv-remote/support/`, `/tv-remote/privacy/`,
+`/tv-remote/terms/`, and `/billing/health`. While paid billing is disabled,
+`/billing/ready` correctly returns 503. GET requests to the verification route
+must return 405 and malformed JSON requests must be rejected. Run the existing
+Python reviewer tests and Node proxy/environment tests after relevant changes.
+
+The original Hyperlift app has not been deleted or its subscription cancelled.
+Use it only as a deliberate rollback option; never put secret values in logs,
+screenshots or deployment notes.
