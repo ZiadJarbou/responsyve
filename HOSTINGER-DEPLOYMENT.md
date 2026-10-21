@@ -81,3 +81,27 @@ Python reviewer tests and Node proxy/environment tests after relevant changes.
 The original Hyperlift app has not been deleted or its subscription cancelled.
 Use it only as a deliberate rollback option; never put secret values in logs,
 screenshots or deployment notes.
+
+## Cloud Run purchase helper — 21 October 2026
+
+The keyless helper is deployed in europe-west1 (Belgium). Configure only the
+billing service environment in `/etc/responsyve/billing.env`:
+
+- `PLAY_HELPER_URL=https://tv-remote-play-helper-1043064764898.europe-west1.run.app/internal/play/verify`
+- `PLAY_HELPER_SHARED_SECRET`: the owner-controlled gateway secret already in
+  Google Secret Manager, version 1. Never put its value in Git or logs.
+- `BILLING_ENABLED=false` until Play organization onboarding, app-scoped API
+  permissions, subscription catalog and license-test lifecycle checks pass.
+
+Preserve reviewer access settings and existing RSA signing key parts. The
+website service must not receive the gateway secret. The verifier refuses
+redirects and requires the fixed HTTPS Cloud Run verification path. It forwards
+only the purchase token, then signs an access grant locally after validating
+subscription state. Cloud Run currently has `PLAY_CHECKS_ENABLED=false`, so
+real purchases cannot grant access through this path yet.
+
+The helper has no RSA signing key or customer database. Normal Cloud Logging
+retention is 30 days; required audit retention is 400 days, at global location.
+On the VPS, Nginx uses daily rotation with 14 rotated log files retained and
+journald has a 1 GB size limit, not a fixed retention duration. Verification
+access logging is off at Nginx and Gunicorn. No provider-wide purge is implied.

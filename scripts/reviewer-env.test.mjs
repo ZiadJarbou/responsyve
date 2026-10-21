@@ -5,7 +5,7 @@ import {runInNewContext} from 'node:vm';
 import {EventEmitter} from 'node:events';
 
 test('signing key names stay in billing child and are removed from website child', () => {
-  const env = {APPLICATION_PORT:'8080', REVIEWER_CREDENTIAL_SHA256:'test-hash'};
+  const env = {APPLICATION_PORT:'8080', REVIEWER_CREDENTIAL_SHA256:'test-hash', PLAY_HELPER_SHARED_SECRET:'synthetic-gateway-secret'};
   for (let i=1;i<=4;i++) {
     env['ENTITLEMENT_PRIVATE_KEY_B64_'+i]='test-canonical-'+i;
     env['ENTITLEMENT_PRIVATE_KEY_B64'+i]='test-saved-name-'+i;
@@ -22,5 +22,6 @@ test('signing key names stay in billing child and are removed from website child
   const website=children[1].options.env;
   assert.equal(website.APPLICATION_PORT,'8080');
   assert.equal(website.REVIEWER_CREDENTIAL_SHA256,undefined);
+  assert.equal(website.PLAY_HELPER_SHARED_SECRET,undefined);
   for (const name of Object.keys(env).filter(name=>name.startsWith('ENTITLEMENT_PRIVATE_KEY_B64'))) assert.equal(website[name],undefined);
 });

@@ -12,6 +12,7 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
+from urllib.parse import urlparse
 
 from flask import Flask, jsonify, request
 from cryptography.hazmat.primitives import hashes, serialization
@@ -90,6 +91,45 @@ class PlayPublisher:
                 raise RuntimeError('Play acknowledgement unavailable')
 
 
+def helper_configuration():
+    url = os.environ.get('PLAY_HELPER_URL', '')
+    secret = os.environ.get('PLAY_HELPER_SHARED_SECRET', '')
+    try:
+        parsed = urlparse(url)
+        valid = (parsed.scheme == 'https' and parsed.hostname and parsed.hostname.endswith('.run.app')
+             and parsed.path == '/internal/play/verify' and not parsed.query and not parsed.fragment
+             and not parsed.username and not parsed.password and parsed.port in (None, 443)
+             and len(secret) >= 43 and not any(c.isspace() for c in secret))
+    except ValueError:
+        valid = False
+    return url, secret, bool(valid)
+
+
+class RemotePlayPublisher:
+    """Only the configured Cloud Run helper may attest to Google purchase state."""
+    def __init__(self):
+        self.url, self.secret, valid = helper_configuration()
+        if not valid: raise ValueError('Invalid helper configuration')
+
+    def get(self, token):
+        import requests
+        with requests.post(self.url, json={'purchaseToken': token},
+                           headers={'Authorization': 'Bearer ' + self.secret}, timeout=(5, 30),
+                           allow_redirects=False, stream=True) as response:
+            if response.status_code != 200: raise RuntimeError('Play helper unavailable')
+            body = bytearray()
+            for chunk in response.iter_content(4096):
+                body.extend(chunk)
+                if len(body) > 16384: raise RuntimeError('Play helper response too large')
+            purchase = json.loads(body).get('purchase')
+        if not isinstance(purchase, dict): raise RuntimeError('Invalid helper response')
+        return purchase
+
+    def acknowledge(self, token):
+        # The helper acknowledges a valid purchase before returning it.
+        raise RuntimeError('Unexpected unacknowledged helper response')
+
+
 def signing_key_base64():
     full = os.environ.get('ENTITLEMENT_PRIVATE_KEY_B64')
     if full:
@@ -121,7 +161,9 @@ def create_app(publisher=None, signer=None, package=None, clock=time.time):
         except Exception:
             # Do not expose credentials or configuration values in startup errors.
             signer = None
-    configuration_ok = enabled and signer is not None and (injected or bool(os.environ.get('GOOGLE_SERVICE_ACCOUNT_B64') or os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')))
+    helper_url, _, helper_valid = helper_configuration()
+    google_configured = helper_valid if helper_url else bool(os.environ.get('GOOGLE_SERVICE_ACCOUNT_B64') or os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'))
+    configuration_ok = enabled and signer is not None and (injected or google_configured)
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 8192
     recent = deque()
@@ -133,7 +175,7 @@ def create_app(publisher=None, signer=None, package=None, clock=time.time):
     def play():
         nonlocal publisher
         if publisher is None:
-            publisher = PlayPublisher(package)
+            publisher = RemotePlayPublisher() if helper_url else PlayPublisher(package)
         return publisher
 
     @app.after_request

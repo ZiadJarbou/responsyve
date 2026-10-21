@@ -16,12 +16,14 @@ Keep BILLING_ENABLED unset/false while credentials, Console access or product se
 In Spaceship's environment-variable editor, configure only after the owner-controlled secrets and permissions are ready:
 - PLAY_PACKAGE_NAME: co.responsyve.tvremote (confirm permanent package before Play upload).
 - ENTITLEMENT_PRIVATE_KEY_B64: Base64 of an owner-controlled RSA private key, at least 2048 bits, PEM PKCS8. Never commit it, send it in chat or expose it in logs.
-- GOOGLE_SERVICE_ACCOUNT_B64: Base64 of the downloaded service-account JSON from an owner-controlled Google Cloud project. Only type service_account and Google's normal oauth2.googleapis.com/token URI are accepted. This is a long-lived key: prefer external workload identity if a suitable provider is established; otherwise protect, limit and rotate it. Never put this JSON in the Android app or repository.
+- PLAY_HELPER_URL: https://tv-remote-play-helper-1043064764898.europe-west1.run.app/internal/play/verify.
+- PLAY_HELPER_SHARED_SECRET: owner-controlled bearer secret matching the deployed helper. Keep it only in the verifier's protected environment file, never the website process or repository.
+- Google authentication uses the helper's attached identity. Do not create or install a downloadable Google service-account key for this setup.
 - BILLING_ENABLED: true only after the preceding configuration and Play API access are established.
 
 Environment changes restart the application. Use the current signed-in Spaceship UI; no extra Spaceship API key is required. Installing new credentials or granting Google Cloud/Play permissions requires the owner's participation and any platform confirmations.
 
-Google setup: create/select a company-owned Cloud project, enable Android Publisher API, create a dedicated service identity, and grant only this app's required subscription read/acknowledgement permissions in Play Console. The Play organization account/permissions are blocked until onboarding is possible. Possessing a service-account JSON alone does not grant Play access. Do not use project Owner/Editor roles as a substitute for app-scoped Play permissions.
+Google setup: use the company-owned Cloud project and the helper runtime identity, and grant only this app's required subscription read/acknowledgement permissions in Play Console. The Play organization account/permissions are blocked until onboarding is possible. Possessing a service-account JSON alone does not grant Play access. Do not use project Owner/Editor roles as a substitute for app-scoped Play permissions.
 
 Use the matching RSA public key in the phone build's billingPublicKey setting; use https://responsyve.co/v1/subscription/verify for billingVerifyUrl. Leave phone checkout disabled until live product/catalog and license-tester purchase lifecycle tests pass. No server private key or Google key belongs in the APK. App configuration alone is not proof of a working subscription.
 
