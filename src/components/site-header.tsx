@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Menu, Moon, Sun, X } from "lucide-react";
-import { email } from "@/lib/company";
+import { email, siteVisibility } from "@/lib/company";
 
 const links = [
-  { href: "#products", label: "Work" },
+  ...(siteVisibility.selectedWork ? [{ href: "#products", label: "Work" }] : []),
   { href: "#activities", label: "Practice" },
   { href: "#premises", label: "Studio" },
 ];

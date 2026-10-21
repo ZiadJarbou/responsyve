@@ -1,5 +1,11 @@
 export const email = "info@responsyve.co";
 
+// Set these back to true to restore the preserved product section and slides.
+export const siteVisibility = {
+  selectedWork: false,
+  productSlides: false,
+};
+
 export const products = [
   {
     name: "KarCast",

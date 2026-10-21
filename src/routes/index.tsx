@@ -7,7 +7,7 @@ import leafletLogo from "@/assets/leafletai.png";
 import leafletInk from "@/assets/leafletai-ink.png";
 import { SiteHeader } from "@/components/site-header";
 import { Button } from "@/components/ui/button";
-import { activities, email, premises, premisesPlain, products } from "@/lib/company";
+import { activities, email, premises, premisesPlain, products, siteVisibility } from "@/lib/company";
 
 const logos = {
   KarCast: { src: karcastLogo, altSrc: null, width: 1600, height: 349 },
@@ -49,9 +49,11 @@ function Hero() {
         stores, sites, campaigns, and brands.
       </p>
       <div className="rise rise-3 mt-8 flex flex-wrap items-center gap-3">
-        <Button asChild>
-          <a href="#products">See the work</a>
-        </Button>
+        {siteVisibility.selectedWork && (
+          <Button asChild>
+            <a href="#products">See the work</a>
+          </Button>
+        )}
         <Button asChild variant="secondary">
           <a href={`mailto:${email}`}>{email}</a>
         </Button>
@@ -86,7 +88,7 @@ function WorkBanner() {
       host: product.host,
       logo: product.name,
     })),
-  ];
+  ].filter((slide) => siteVisibility.productSlides || slide.kicker !== "Product");
   const count = slides.length;
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -196,7 +198,7 @@ function WorkBanner() {
 
 function Products() {
   return (
-    <section id="products" className="border-t border-line">
+    <section id="products" className="border-t border-line" hidden={!siteVisibility.selectedWork}>
       <div className="mx-auto max-w-6xl px-5 py-16 md:px-8 md:py-24">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <h2 className="font-display text-4xl font-medium tracking-display sm:text-5xl">Selected work</h2>
