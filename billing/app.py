@@ -20,23 +20,29 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 PRODUCT = 'tv_remote_access'
 BASE_PLAN = 'monthly'
+BASE_PLANS = frozenset({'monthly', 'annual'})
 ACTIVE_STATES = {'SUBSCRIPTION_STATE_ACTIVE', 'SUBSCRIPTION_STATE_IN_GRACE_PERIOD', 'SUBSCRIPTION_STATE_CANCELED'}
 
 
-def entitlement_expiry(purchase, now):
+def entitlement_details(purchase, now):
     if purchase.get('subscriptionState') not in ACTIVE_STATES:
         return None
     expiries = []
     for item in purchase.get('lineItems', []):
-        if item.get('productId') != PRODUCT or item.get('offerDetails', {}).get('basePlanId') != BASE_PLAN:
+        if item.get('productId') != PRODUCT or item.get('offerDetails', {}).get('basePlanId') not in BASE_PLANS:
             continue
         try:
             expires = int(datetime.fromisoformat(item['expiryTime'].replace('Z', '+00:00')).timestamp())
         except (KeyError, ValueError, TypeError):
             continue
         if expires > now:
-            expiries.append(expires)
+            expiries.append((expires, item['offerDetails']['basePlanId']))
     return max(expiries) if expiries else None
+
+
+def entitlement_expiry(purchase, now):
+    details = entitlement_details(purchase, now)
+    return details[0] if details else None
 
 
 def b64(value):

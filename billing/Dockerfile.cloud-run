@@ -1,0 +1,8 @@
+FROM python:3.13-slim
+WORKDIR /app
+COPY billing/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY billing/app.py billing/cloud_run_helper.py ./
+ENV PORT=8080
+USER 65532:65532
+CMD ["sh", "-c", "exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 30 --access-logfile /dev/null 'cloud_run_helper:create_app()'"]
