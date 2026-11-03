@@ -8,9 +8,9 @@ SECRET = 'synthetic-test-secret-only-not-production-0000000000'
 
 
 class KeylessHelper(unittest.TestCase):
-    def client(self, value=None, enabled=True):
+    def client(self, value=None, enabled=True, mode='all-purchases'):
         self.publisher = fixtures.Publisher(value if value is not None else fixtures.purchase())
-        return create_app(self.publisher, lambda: fixtures.NOW, SECRET, enabled).test_client()
+        return create_app(self.publisher, lambda: fixtures.NOW, SECRET, enabled, mode).test_client()
 
     def post(self, client, body=None, secret=SECRET):
         return client.post('/internal/play/verify', json=body if body is not None else {'purchaseToken': 'test-token'}, headers={'Authorization': 'Bearer ' + secret})
@@ -38,6 +38,48 @@ class KeylessHelper(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json['purchase']['lineItems'][0]['offerDetails']['basePlanId'], 'annual')
         self.assertEqual(self.publisher.acknowledged, ['test-token'])
+
+    def test_default_mode_rejects_real_purchase_before_acknowledgement(self):
+        provider = fixtures.Publisher(fixtures.purchase())
+        with patch.dict(os.environ, {}, clear=True):
+            client = create_app(provider, lambda: fixtures.NOW, SECRET, True).test_client()
+        self.assertEqual(client.get('/health').json['purchase_mode'], 'license-test-only')
+        self.assertEqual(self.post(client).json, {'purchase': {}})
+        self.assertEqual(provider.acknowledged, [])
+
+    def test_test_only_rejects_real_monthly_annual_and_acknowledged(self):
+        for plan in ('monthly', 'annual'):
+            for ack in ('ACKNOWLEDGEMENT_STATE_PENDING', 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED'):
+                value = fixtures.purchase()
+                value['lineItems'][0]['offerDetails']['basePlanId'] = plan
+                value['acknowledgementState'] = ack
+                self.assertEqual(self.post(self.client(value, mode='license-test-only')).json, {'purchase': {}})
+                self.assertEqual(self.publisher.acknowledged, [])
+
+    def test_test_only_accepts_google_test_marker_for_both_plans(self):
+        for plan in ('monthly', 'annual'):
+            value = fixtures.purchase()
+            value['testPurchase'] = {}
+            value['lineItems'][0]['offerDetails']['basePlanId'] = plan
+            response = self.post(self.client(value, mode='license-test-only'))
+            self.assertEqual(response.json['purchase']['lineItems'][0]['offerDetails']['basePlanId'], plan)
+            self.assertEqual(self.publisher.acknowledged, ['test-token'])
+            self.assertNotIn('testPurchase', response.json['purchase'])
+
+    def test_client_cannot_mark_real_purchase_as_test(self):
+        client = self.client(mode='license-test-only')
+        response = self.post(client, {'purchaseToken': 'test-token', 'testPurchase': {}})
+        self.assertEqual(response.json, {'purchase': {}})
+        self.assertEqual(self.publisher.acknowledged, [])
+
+    def test_invalid_mode_disables_checks_and_malformed_marker_is_rejected(self):
+        client = self.client(mode='typo')
+        self.assertFalse(client.get('/health').json['google_checks_configured'])
+        self.assertEqual(self.post(client).status_code, 503)
+        for marker in (None, True, 'test', []):
+            value = fixtures.purchase(); value['testPurchase'] = marker
+            self.assertEqual(self.post(self.client(value, mode='license-test-only')).json, {'purchase': {}})
+            self.assertEqual(self.publisher.acknowledged, [])
 
     def test_inactive_wrong_plan_and_expired_never_acknowledged(self):
         wrong = fixtures.purchase(); wrong['lineItems'][0]['offerDetails']['basePlanId'] = 'wrong'

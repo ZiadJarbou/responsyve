@@ -10,14 +10,15 @@ from flask import Flask, jsonify, request
 from app import PlayPublisher, entitlement_details, PRODUCT
 
 
-def create_app(publisher=None, clock=time.time, shared_secret=None, checks_enabled=None):
+def create_app(publisher=None, clock=time.time, shared_secret=None, checks_enabled=None, purchase_mode=None):
     # Explicit attached-identity mode. Never accept downloadable Google credentials here.
     keyless_environment = bool(os.environ.get('K_SERVICE')) and not any(os.environ.get(name) for name in ('GOOGLE_APPLICATION_CREDENTIALS', 'GOOGLE_SERVICE_ACCOUNT_B64'))
     injected = publisher is not None
     secret = shared_secret if shared_secret is not None else os.environ.get('PLAY_HELPER_SHARED_SECRET', '')
     secret_ok = len(secret) >= 43 and not any(c.isspace() for c in secret)
     enabled = checks_enabled if checks_enabled is not None else os.environ.get('PLAY_CHECKS_ENABLED') == 'true'
-    configured = secret_ok and enabled and (injected or keyless_environment)
+    mode = purchase_mode if purchase_mode is not None else os.environ.get('PLAY_PURCHASE_MODE', 'license-test-only')
+    configured = secret_ok and enabled and (injected or keyless_environment) and mode in ('license-test-only', 'all-purchases')
     package = os.environ.get('PLAY_PACKAGE_NAME', 'co.responsyve.tvremote')
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 8192
@@ -31,7 +32,7 @@ def create_app(publisher=None, clock=time.time, shared_secret=None, checks_enabl
         return response
 
     @app.get('/health')
-    def health(): return jsonify(status='ok', google_checks_configured=configured)
+    def health(): return jsonify(status='ok', google_checks_configured=configured, purchase_mode=mode)
 
     @app.post('/internal/play/verify')
     def verify():
@@ -54,6 +55,10 @@ def create_app(publisher=None, clock=time.time, shared_secret=None, checks_enabl
         try:
             if publisher is None: publisher = PlayPublisher(package)
             purchase = publisher.get(token)
+            # Google's authenticated response is the only authority for test status.
+            # Reject real purchases before acknowledgement or any access grant.
+            if mode == 'license-test-only' and not isinstance(purchase.get('testPurchase'), dict):
+                return jsonify(purchase={})
             details = entitlement_details(purchase, int(clock()))
             if details is None: return jsonify(purchase={})
             expiry, base_plan = details
