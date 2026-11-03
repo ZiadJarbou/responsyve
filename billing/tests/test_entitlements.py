@@ -44,7 +44,7 @@ class Entitlements(unittest.TestCase):
         head, payload, signature = response.json['lease'].split('.')
         self.key.public_key().verify(base64.urlsafe_b64decode(signature+'==='), (head+'.'+payload).encode(), padding.PKCS1v15(), hashes.SHA256())
         claims = json.loads(base64.urlsafe_b64decode(payload+'==='))
-        self.assertEqual(claims, {'aud': PACKAGE, 'product': PRODUCT, 'sub': body['installation'], 'nonce': body['nonce'], 'iat': NOW, 'exp': NOW+3600})
+        self.assertEqual(claims, {'aud': PACKAGE, 'product': PRODUCT, 'sub': body['installation'], 'nonce': body['nonce'], 'iat': NOW, 'exp': NOW+3600, 'basePlan': 'monthly'})
         self.assertEqual(self.provider.acknowledged, ['test-only-token'])
 
     def test_annual_purchase_grants_bounded_lease_and_acknowledges(self):
@@ -54,7 +54,16 @@ class Entitlements(unittest.TestCase):
         self.assertTrue(response.json['active'])
         claims = json.loads(base64.urlsafe_b64decode(response.json['lease'].split('.')[1]+'==='))
         self.assertEqual(claims['exp'], NOW+86400)
+        self.assertEqual(claims['basePlan'], 'annual')
         self.assertEqual(self.provider.acknowledged, ['test-only-token'])
+
+    def test_current_plan_comes_only_from_google(self):
+        body = self.body()
+        body['basePlan'] = 'annual'
+        response = self.client(purchase()).post('/v1/subscription/verify', json=body)
+        self.assertTrue(response.json['active'])
+        claims = json.loads(base64.urlsafe_b64decode(response.json['lease'].split('.')[1]+'==='))
+        self.assertEqual(claims['basePlan'], 'monthly')
 
     def test_lease_never_exceeds_one_day(self):
         response = self.client(purchase(seconds=30*86400)).post('/v1/subscription/verify', json=self.body())

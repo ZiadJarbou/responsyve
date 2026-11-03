@@ -255,15 +255,16 @@ def create_app(publisher=None, signer=None, package=None, clock=time.time):
         try:
             purchase = play().get(token)
             now = int(clock())
-            expiry = entitlement_expiry(purchase, now)
-            if expiry is None:
+            details = entitlement_details(purchase, now)
+            if details is None:
                 return jsonify(active=False)
+            expiry, base_plan = details
             acknowledgement = purchase.get('acknowledgementState')
             if acknowledgement == 'ACKNOWLEDGEMENT_STATE_PENDING':
                 play().acknowledge(token)
             elif acknowledgement != 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED':
                 return jsonify(active=False)
-            claims = {'aud': package, 'product': PRODUCT, 'sub': installation, 'nonce': nonce, 'iat': now, 'exp': min(expiry, now + 86400)}
+            claims = {'aud': package, 'product': PRODUCT, 'sub': installation, 'nonce': nonce, 'iat': now, 'exp': min(expiry, now + 86400), 'basePlan': base_plan}
             return jsonify(active=True, lease=signer.sign(claims))
         except Exception:
             # Tokens, signed leases, credentials, and upstream URLs must never reach logs.
